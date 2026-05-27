@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+venv/
+.venv/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+
+# Dataset (large, downloaded by script)
+data/UCI HAR Dataset/
+data/*.zip
+
+# Generated model artifacts
+models/
+# Keep the models/ directory itself
+!models/.gitkeep
+
+# TF SavedModel (intermediate, large)
+**/har_cnn_tf_savedmodel/
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Arduino build artifacts
+arduino/build/
