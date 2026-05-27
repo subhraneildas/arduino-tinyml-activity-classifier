@@ -1,4 +1,4 @@
-# CLAUDE.md — nRF52840 HAR TinyML Project
+# nRF52840 HAR TinyML Project
 
 ## Project Purpose
 End-to-end TinyML pipeline for Human Activity Recognition (HAR) on the Arduino
