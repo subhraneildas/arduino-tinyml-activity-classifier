@@ -36,7 +36,8 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from training.dataset import (
-    ACTIVITY_LABELS, N_CLASSES, get_dataloaders, save_norm_params
+    ACTIVITY_LABELS, N_CLASSES,
+    get_dataloaders, get_dataloaders_numpy, save_norm_params,
 )
 from training.model import HARCNN
 
@@ -102,8 +103,16 @@ def evaluate(
 # ── Main ────────────────────────────────────────────────────────────────────────
 
 def parse_args() -> argparse.Namespace:
-    p = argparse.ArgumentParser(description="Train HARCNN on UCI HAR")
-    p.add_argument("--data-dir",    required=True,  help="Path to 'UCI HAR Dataset'")
+    p = argparse.ArgumentParser(
+        description="Train HARCNN on UCI HAR or custom-collected numpy data",
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
+    )
+    p.add_argument("--data-dir",    required=True,
+                   help="Path to 'UCI HAR Dataset' (uci) or preprocessed numpy dir (numpy)")
+    p.add_argument("--data-format", default="uci", choices=["uci", "numpy"],
+                   help="'uci' = UCI HAR raw signals | 'numpy' = preprocess_collected output")
+    p.add_argument("--checkpoint",  default="",
+                   help="Path to .pt checkpoint to fine-tune from (optional)")
     p.add_argument("--output-dir",  default="models/", help="Where to save checkpoints")
     p.add_argument("--epochs",      type=int,   default=50)
     p.add_argument("--batch-size",  type=int,   default=64)
@@ -138,13 +147,21 @@ def main() -> None:
     print(f"Using device: {device}")
 
     # ── Data
-    print("Loading UCI HAR dataset ...")
-    train_loader, test_loader, norm_params = get_dataloaders(
-        data_dir=args.data_dir,
-        batch_size=args.batch_size,
-        num_workers=args.num_workers,
-        normalize=True,
-    )
+    if args.data_format == "numpy":
+        print("Loading preprocessed numpy dataset ...")
+        train_loader, test_loader, norm_params = get_dataloaders_numpy(
+            data_dir=args.data_dir,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+        )
+    else:
+        print("Loading UCI HAR dataset ...")
+        train_loader, test_loader, norm_params = get_dataloaders(
+            data_dir=args.data_dir,
+            batch_size=args.batch_size,
+            num_workers=args.num_workers,
+            normalize=True,
+        )
     save_norm_params(norm_params, str(out_dir / "normalization_params.json"))
 
     print(f"  Train: {len(train_loader.dataset):,} windows")
@@ -153,10 +170,17 @@ def main() -> None:
     print(f"  Mean:  {[f'{v:.4f}' for v in norm_params['mean']]}")
     print(f"  Std:   {[f'{v:.4f}' for v in norm_params['std']]}")
 
-    # ── Model
+    # ── Model (optionally fine-tune from an existing checkpoint)
     model = HARCNN(n_channels=6, n_classes=N_CLASSES, dropout=args.dropout)
+    if args.checkpoint and Path(args.checkpoint).exists():
+        ckpt = torch.load(args.checkpoint, map_location=device, weights_only=False)
+        model.load_state_dict(ckpt["model_state_dict"])
+        start_acc = ckpt.get("test_acc", 0.0)
+        print(f"\nFine-tuning from: {args.checkpoint}  (saved acc={start_acc:.2%})")
+    else:
+        print("\nTraining from scratch.")
     model = model.to(device)
-    print(f"\nModel: {model.num_parameters:,} parameters")
+    print(f"Model: {model.num_parameters:,} parameters")
 
     # ── Optimizer + scheduler
     criterion = nn.CrossEntropyLoss(label_smoothing=0.05)
