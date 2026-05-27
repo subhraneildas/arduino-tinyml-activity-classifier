@@ -10,6 +10,10 @@ matplotlib>=3.7.0
 seaborn>=0.12.0
 tqdm>=4.65.0
 requests>=2.31.0             # dataset download
+scipy>=1.11.0                # Butterworth filter for gravity removal (preprocessing)
+
+# ─── Data collection (PC side) ───────────────────────────────────────────────
+pyserial>=3.5               # serial comms with Arduino (collect_data.py)
 
 # ─── ONNX export & validation ────────────────────────────────────────────────
 onnx>=1.15.0

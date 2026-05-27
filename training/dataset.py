@@ -171,6 +171,65 @@ def load_norm_params(path: str) -> Dict:
         return json.load(f)
 
 
+def load_numpy_dataset(
+    data_dir: str,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, Dict]:
+    """
+    Load a preprocessed numpy dataset produced by data/preprocess_collected.py.
+
+    Expects in data_dir:
+        X_train.npy  (n, 6, 128) float32   — already normalized, channels-first
+        y_train.npy  (n,)        int64
+        X_test.npy   (n, 6, 128) float32
+        y_test.npy   (n,)        int64
+        normalization_params.json
+
+    Returns the same signature as load_uci_har() for drop-in compatibility.
+    """
+    root = Path(data_dir)
+    X_train = np.load(root / "X_train.npy")
+    y_train = np.load(root / "y_train.npy")
+    X_test  = np.load(root / "X_test.npy")
+    y_test  = np.load(root / "y_test.npy")
+
+    norm_path = root / "normalization_params.json"
+    if norm_path.exists():
+        with open(norm_path) as f:
+            norm_params = json.load(f)
+    else:
+        norm_params = {"mean": [0.0] * 6, "std": [1.0] * 6,
+                       "channels": [], "units": []}
+
+    return X_train, y_train, X_test, y_test, norm_params
+
+
+def get_dataloaders_numpy(
+    data_dir: str,
+    batch_size: int = 64,
+    num_workers: int = 2,
+) -> Tuple[DataLoader, DataLoader, Dict]:
+    """
+    Create DataLoaders from a preprocessed numpy dataset
+    (output of data/preprocess_collected.py).
+
+    Use instead of get_dataloaders() when fine-tuning on custom-collected data.
+    """
+    X_train, y_train, X_test, y_test, norm_params = load_numpy_dataset(data_dir)
+
+    train_ds = HARDataset(X_train, y_train)
+    test_ds  = HARDataset(X_test,  y_test)
+
+    train_loader = DataLoader(
+        train_ds, batch_size=batch_size, shuffle=True,
+        num_workers=num_workers, pin_memory=True,
+    )
+    test_loader = DataLoader(
+        test_ds, batch_size=batch_size, shuffle=False,
+        num_workers=num_workers, pin_memory=True,
+    )
+    return train_loader, test_loader, norm_params
+
+
 # ── PyTorch Dataset / DataLoader ───────────────────────────────────────────────
 
 class HARDataset(Dataset):
